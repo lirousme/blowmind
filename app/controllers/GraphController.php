@@ -39,9 +39,7 @@ final class GraphController
     {
         $input = [
             'fromName' => trim((string) ($_POST['fromName'] ?? '')),
-            'fromUuid' => trim((string) ($_POST['fromUuid'] ?? '')),
             'toName' => trim((string) ($_POST['toName'] ?? '')),
-            'toUuid' => trim((string) ($_POST['toUuid'] ?? '')),
             'relationshipType' => preg_replace('/[^A-Za-z0-9_]/', '', (string) ($_POST['relationshipType'] ?? '')),
         ];
 
@@ -55,9 +53,7 @@ final class GraphController
 
         $this->graphModel->createRelationshipByName(
             $input['fromName'],
-            $input['fromUuid'],
             $input['toName'],
-            $input['toUuid'],
             $input['relationshipType']
         );
 
