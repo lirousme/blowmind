@@ -15,7 +15,7 @@ final class GraphModel
         }
 
         $result = Database::client()->run(
-            'MATCH (n) WHERE exists(n.nome) AND toLower(n.nome) STARTS WITH toLower($query) RETURN DISTINCT n.nome AS nome ORDER BY nome LIMIT $limit',
+            'MATCH (n) WHERE n.nome IS NOT NULL AND toLower(toString(n.nome)) STARTS WITH toLower($query) RETURN DISTINCT toString(n.nome) AS nome ORDER BY nome LIMIT $limit',
             ['query' => $query, 'limit' => $limit]
         );
 
