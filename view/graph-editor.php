@@ -18,29 +18,18 @@
         <p class="text-slate-400 mt-2">Crie nodes e relações usando JavaScript puro + PHP (MVC).</p>
       </header>
 
-      <section class="grid md:grid-cols-2 gap-6">
-        <form id="nodeForm" class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
-          <h2 class="text-xl font-semibold">Criar Node</h2>
-          <div>
-            <label class="block mb-1 text-sm">Label</label>
-            <input name="label" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2" placeholder="Pessoa" required />
-          </div>
-          <div>
-            <label class="block mb-1 text-sm">Propriedades (JSON)</label>
-            <textarea name="properties" rows="5" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2" placeholder='{"nome":"Ana","idade":30}'></textarea>
-          </div>
-          <button class="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-xl">Criar Node</button>
-        </form>
-
-        <form id="relForm" class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
-          <h2 class="text-xl font-semibold">Criar Relação</h2>
-          <input name="fromLabel" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2" placeholder="Label origem" required />
-          <input name="fromKey" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2" placeholder="Chave origem (ex: nome)" required />
-          <input name="fromValue" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2" placeholder="Valor origem" required />
-          <input name="toLabel" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2" placeholder="Label destino" required />
-          <input name="toKey" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2" placeholder="Chave destino" required />
-          <input name="toValue" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2" placeholder="Valor destino" required />
-          <input name="relationshipType" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2" placeholder="TIPO_RELACAO" required />
+      <section>
+        <form id="relForm" class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 max-w-2xl">
+          <h2 class="text-xl font-semibold">Criar relação por nome</h2>
+          <input name="fromName" list="fromNameSuggestions" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2" placeholder="Nome do primeiro node" required />
+          <datalist id="fromNameSuggestions"></datalist>
+          <input name="fromUuid" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2" placeholder="UUID do primeiro node (opcional)" />
+          <select name="relationshipType" id="relationshipType" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2" required>
+            <option value="">Selecione um tipo de relação</option>
+          </select>
+          <input name="toName" list="toNameSuggestions" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2" placeholder="Nome do segundo node" required />
+          <datalist id="toNameSuggestions"></datalist>
+          <input name="toUuid" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2" placeholder="UUID do segundo node (opcional)" />
           <button class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-xl">Criar Relação</button>
         </form>
       </section>

@@ -8,33 +8,56 @@ use App\Core\Database;
 
 final class GraphModel
 {
+    public function findNamesByPrefix(string $query, int $limit = 8): array
+    {
+        $result = Database::client()->run(
+            'MATCH (n) WHERE exists(n.nome) AND toLower(n.nome) CONTAINS toLower($query) RETURN DISTINCT n.nome AS nome ORDER BY nome LIMIT $limit',
+            ['query' => $query, 'limit' => $limit]
+        );
+
+        return array_values(array_filter(array_map(
+            static fn ($record): string => (string) $record->get('nome'),
+            iterator_to_array($result)
+        )));
+    }
+
+    public function getRelationshipTypes(): array
+    {
+        $result = Database::client()->run('CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType ORDER BY relationshipType');
+
+        return array_values(array_filter(array_map(
+            static fn ($record): string => (string) $record->get('relationshipType'),
+            iterator_to_array($result)
+        )));
+    }
+
     public function createNode(string $label, array $properties): void
     {
         $query = sprintf('CREATE (n:%s $props)', $label);
         Database::client()->run($query, ['props' => $properties]);
     }
 
-    public function createRelationship(
-        string $fromLabel,
-        string $fromKey,
-        string $fromValue,
-        string $toLabel,
-        string $toKey,
-        string $toValue,
+    public function createRelationshipByName(
+        string $fromName,
+        string $fromUuid,
+        string $toName,
+        string $toUuid,
         string $relationshipType
     ): void {
         $query = sprintf(
-            'MATCH (a:%s {%s: $fromValue}), (b:%s {%s: $toValue}) CREATE (a)-[:%s]->(b)',
-            $fromLabel,
-            $fromKey,
-            $toLabel,
-            $toKey,
+            'MERGE (a:Node {nome: $fromName})
+             ON CREATE SET a.uuid = CASE WHEN $fromUuid = "" THEN randomUUID() ELSE $fromUuid END
+             MERGE (b:Node {nome: $toName})
+             ON CREATE SET b.uuid = CASE WHEN $toUuid = "" THEN randomUUID() ELSE $toUuid END
+             MERGE (a)-[:%s]->(b)',
             $relationshipType
         );
 
         Database::client()->run($query, [
-            'fromValue' => $fromValue,
-            'toValue' => $toValue,
+            'fromName' => $fromName,
+            'fromUuid' => $fromUuid,
+            'toName' => $toName,
+            'toUuid' => $toUuid,
         ]);
     }
 }

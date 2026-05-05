@@ -74,6 +74,16 @@ if ($method === 'POST' && $path === '/relationship') {
     exit;
 }
 
+if ($method === 'GET' && $path === '/relationship-types') {
+    $controller->relationshipTypes();
+    exit;
+}
+
+if ($method === 'GET' && $path === '/node-names') {
+    $controller->nodeNames();
+    exit;
+}
+
 http_response_code(404);
 header('Content-Type: text/plain; charset=utf-8');
 echo 'Rota não encontrada.';
