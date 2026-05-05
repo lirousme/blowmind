@@ -25,3 +25,21 @@ A primeira view está em `view/graph-editor.php` e permite:
 ## Conexão Neo4j
 Configurada em `config/database.php` com:
 `bolt://neo4j:75351595@localhost:7687`
+
+## Solução do erro `vendor/autoload.php`
+Se aparecer o erro abaixo:
+
+```txt
+Failed opening required '.../vendor/autoload.php'
+```
+
+significa que as dependências do Composer ainda não foram instaladas no projeto. Rode `composer install` na raiz do projeto.
+
+No Windows (WAMP), abra o terminal na pasta do projeto e execute:
+
+```bash
+composer install
+php -S localhost:8000 -t public
+```
+
+O `public/index.php` já foi preparado para exibir uma mensagem amigável caso o `autoload.php` ainda não exista.
