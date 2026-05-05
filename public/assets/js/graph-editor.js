@@ -1,9 +1,19 @@
 const feedback = document.getElementById('feedback');
-const basePath = window.location.pathname.replace(/\/$/, '').replace(/\/index\.php$/, '') || '';
 const relForm = document.getElementById('relForm');
 
+function normalizeBasePath(pathname) {
+  const trimmed = pathname.replace(/\/+$/, '');
+  if (trimmed.endsWith('/index.php')) {
+    return trimmed.slice(0, -'/index.php'.length) || '';
+  }
+
+  return trimmed;
+}
+
+const basePath = normalizeBasePath(window.location.pathname);
+
 function route(path) {
-  return `${basePath}${path}`;
+  return `${basePath}/index.php${path}`;
 }
 
 async function sendForm(form, url) {
