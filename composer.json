@@ -1,0 +1,13 @@
+{
+  "name": "blowmind/neo4j-mvc",
+  "description": "POO + MVC + PHP + JS puro + TailwindCSS dark mode",
+  "type": "project",
+  "require": {
+    "laudis/neo4j-php-client": "^3.6"
+  },
+  "autoload": {
+    "psr-4": {
+      "App\\": "app/"
+    }
+  }
+}
