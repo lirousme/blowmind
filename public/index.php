@@ -44,7 +44,19 @@ HTML;
 require $autoload;
 
 $controller = new GraphController();
-$path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+$path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
+$scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
+$baseDir = rtrim(str_replace('\\', '/', dirname($scriptName)), '/');
+
+if ($baseDir !== '' && $baseDir !== '/' && str_starts_with($path, $baseDir)) {
+    $path = substr($path, strlen($baseDir)) ?: '/';
+}
+
+if (str_starts_with($path, '/index.php')) {
+    $path = substr($path, strlen('/index.php')) ?: '/';
+}
+
+$path = '/' . ltrim($path, '/');
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 if ($method === 'GET' && $path === '/') {
