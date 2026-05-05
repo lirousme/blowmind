@@ -3,7 +3,7 @@
   "description": "POO + MVC + PHP + JS puro + TailwindCSS dark mode",
   "type": "project",
   "require": {
-    "laudis/neo4j-php-client": "^3.6"
+    "laudis/neo4j-php-client": "^3.4"
   },
   "autoload": {
     "psr-4": {
