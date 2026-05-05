@@ -38,33 +38,41 @@ final class GraphController
     public function storeRelationship(): void
     {
         $input = [
-            'fromLabel' => preg_replace('/[^A-Za-z0-9_]/', '', (string) ($_POST['fromLabel'] ?? '')),
-            'fromKey' => preg_replace('/[^A-Za-z0-9_]/', '', (string) ($_POST['fromKey'] ?? '')),
-            'fromValue' => (string) ($_POST['fromValue'] ?? ''),
-            'toLabel' => preg_replace('/[^A-Za-z0-9_]/', '', (string) ($_POST['toLabel'] ?? '')),
-            'toKey' => preg_replace('/[^A-Za-z0-9_]/', '', (string) ($_POST['toKey'] ?? '')),
-            'toValue' => (string) ($_POST['toValue'] ?? ''),
+            'fromName' => trim((string) ($_POST['fromName'] ?? '')),
+            'fromUuid' => trim((string) ($_POST['fromUuid'] ?? '')),
+            'toName' => trim((string) ($_POST['toName'] ?? '')),
+            'toUuid' => trim((string) ($_POST['toUuid'] ?? '')),
             'relationshipType' => preg_replace('/[^A-Za-z0-9_]/', '', (string) ($_POST['relationshipType'] ?? '')),
         ];
 
-        foreach ($input as $value) {
+        foreach (['fromName', 'toName', 'relationshipType'] as $requiredField) {
+            $value = $input[$requiredField];
             if ($value === '') {
                 $this->json(['ok' => false, 'message' => 'Todos os campos são obrigatórios.'], 422);
                 return;
             }
         }
 
-        $this->graphModel->createRelationship(
-            $input['fromLabel'],
-            $input['fromKey'],
-            $input['fromValue'],
-            $input['toLabel'],
-            $input['toKey'],
-            $input['toValue'],
+        $this->graphModel->createRelationshipByName(
+            $input['fromName'],
+            $input['fromUuid'],
+            $input['toName'],
+            $input['toUuid'],
             $input['relationshipType']
         );
 
         $this->json(['ok' => true, 'message' => 'Relação criada com sucesso.']);
+    }
+
+    public function relationshipTypes(): void
+    {
+        $this->json(['ok' => true, 'types' => $this->graphModel->getRelationshipTypes()]);
+    }
+
+    public function nodeNames(): void
+    {
+        $query = trim((string) ($_GET['q'] ?? ''));
+        $this->json(['ok' => true, 'names' => $this->graphModel->findNamesByPrefix($query)]);
     }
 
     private function json(array $payload, int $status = 200): void
