@@ -41,33 +41,6 @@ async function loadRelationshipTypes() {
   });
 }
 
-async function fetchNames(query) {
-  const response = await fetch(`${route('/node-names')}?q=${encodeURIComponent(query)}`);
-  const payload = await response.json();
-  return payload.names || [];
-}
-
-async function updateSuggestions(input, datalistId) {
-  const datalist = document.getElementById(datalistId);
-  const query = input.value.trim();
-  datalist.innerHTML = '';
-
-  if (query.length < 1) return;
-
-  const names = await fetchNames(query);
-  names.forEach((name) => {
-    const option = document.createElement('option');
-    option.value = name;
-    datalist.appendChild(option);
-  });
-}
-
-['fromName', 'toName'].forEach((fieldName) => {
-  const input = relForm.elements[fieldName];
-  const datalistId = fieldName === 'fromName' ? 'fromNameSuggestions' : 'toNameSuggestions';
-  input.addEventListener('input', () => updateSuggestions(input, datalistId));
-});
-
 relForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   await sendForm(event.currentTarget, route('/relationship'));

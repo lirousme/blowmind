@@ -24,8 +24,7 @@
 
           <div class="space-y-1">
             <label for="fromName" class="text-sm text-slate-300">Nome do primeiro node</label>
-            <input id="fromName" name="fromName" list="fromNameSuggestions" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2" placeholder="Ex.: Morango" required />
-            <datalist id="fromNameSuggestions"></datalist>
+            <input id="fromName" name="fromName" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2" placeholder="Ex.: Morango" required />
           </div>
 
           <div class="space-y-1">
@@ -37,8 +36,7 @@
 
           <div class="space-y-1">
             <label for="toName" class="text-sm text-slate-300">Nome do segundo node</label>
-            <input id="toName" name="toName" list="toNameSuggestions" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2" placeholder="Ex.: Doce" required />
-            <datalist id="toNameSuggestions"></datalist>
+            <input id="toName" name="toName" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2" placeholder="Ex.: Doce" required />
           </div>
 
           <p class="text-xs text-slate-400">UUID é gerado automaticamente quando o node ainda não existe.</p>
