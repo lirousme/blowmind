@@ -27,10 +27,60 @@ final class GraphModel
 
     public function getRelationshipTypes(): array
     {
-        $result = Database::client()->run('CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType ORDER BY relationshipType');
+        return $this->collectProcedureColumn(
+            'CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType ORDER BY relationshipType',
+            'relationshipType'
+        );
+    }
+
+    public function getNodeLabels(): array
+    {
+        return $this->collectProcedureColumn(
+            'CALL db.labels() YIELD label RETURN label ORDER BY label',
+            'label'
+        );
+    }
+
+    public function getPropertyKeys(): array
+    {
+        return $this->collectProcedureColumn(
+            'CALL db.propertyKeys() YIELD propertyKey RETURN propertyKey ORDER BY propertyKey',
+            'propertyKey'
+        );
+    }
+
+    public function getSchemaItems(): array
+    {
+        return [
+            'nodes' => $this->getNodeLabels(),
+            'relationships' => $this->getRelationshipTypes(),
+            'propertyKeys' => $this->getPropertyKeys(),
+        ];
+    }
+
+    public function createSchemaItem(string $kind, string $name): void
+    {
+        $procedureByKind = [
+            'node' => 'db.createLabel',
+            'relationship' => 'db.createRelationshipType',
+            'property' => 'db.createProperty',
+        ];
+
+        $procedure = $procedureByKind[$kind] ?? null;
+
+        if ($procedure === null) {
+            return;
+        }
+
+        Database::client()->run(sprintf('CALL %s($name)', $procedure), ['name' => $name]);
+    }
+
+    private function collectProcedureColumn(string $query, string $column): array
+    {
+        $result = Database::client()->run($query);
 
         return array_values(array_filter(array_map(
-            static fn ($record): string => (string) $record->get('relationshipType'),
+            static fn ($record): string => (string) $record->get($column),
             iterator_to_array($result)
         )));
     }

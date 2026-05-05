@@ -1,3 +1,9 @@
+<?php
+$baseUrl = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/');
+if ($baseUrl === '' || $baseUrl === '.') {
+    $baseUrl = '';
+}
+?>
 <!doctype html>
 <html lang="pt-BR" class="dark">
   <head>
@@ -13,9 +19,12 @@
   </head>
   <body class="bg-slate-950 text-slate-100 min-h-screen">
     <main class="max-w-4xl mx-auto px-4 py-10 space-y-8">
-      <header>
-        <h1 class="text-3xl font-bold">Neo4j Graph Editor</h1>
-        <p class="text-slate-400 mt-2">Digite dois nomes, escolha o tipo de relação e o sistema cria/usa os nodes automaticamente com UUID.</p>
+      <header class="space-y-3">
+        <a href="<?= htmlspecialchars($baseUrl . '/index.php/schema', ENT_QUOTES) ?>" class="text-sm text-emerald-400 hover:text-emerald-300">Abrir catálogo do grafo →</a>
+        <div>
+          <h1 class="text-3xl font-bold">Neo4j Graph Editor</h1>
+          <p class="text-slate-400 mt-2">Digite dois nomes, escolha o tipo de relação e o sistema cria/usa os nodes automaticamente com UUID.</p>
+        </div>
       </header>
 
       <section>
@@ -47,6 +56,6 @@
       <div id="feedback" class="text-sm text-slate-300"></div>
     </main>
 
-    <script src="assets/js/graph-editor.js"></script>
+    <script src="<?= htmlspecialchars($baseUrl . '/assets/js/graph-editor.js', ENT_QUOTES) ?>"></script>
   </body>
 </html>
