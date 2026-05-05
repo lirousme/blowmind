@@ -6,10 +6,14 @@ Estrutura inicial com:
 - TailwindCSS em dark mode
 - Diretório `view` com páginas
 
-## Primeira view
-A primeira view está em `view/graph-editor.php` e permite:
+## Views
+A view principal está em `view/graph-editor.php` e permite:
 - Criar nodes
 - Criar relações
+
+A view de catálogo está em `view/schema-catalog.php` e permite:
+- Listar labels de nodes, tipos de relationships e property keys do banco atual
+- Adicionar novas labels, novos tipos de relationships e novas property keys
 
 ## Configuração
 1. Instale dependências:

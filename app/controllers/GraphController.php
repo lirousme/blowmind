@@ -21,9 +21,14 @@ final class GraphController
         View::render('graph-editor');
     }
 
+    public function schema(): void
+    {
+        View::render('schema-catalog');
+    }
+
     public function storeNode(): void
     {
-        $label = preg_replace('/[^A-Za-z0-9_]/', '', (string) ($_POST['label'] ?? ''));
+        $label = $this->sanitizeIdentifier((string) ($_POST['label'] ?? ''));
         $properties = json_decode((string) ($_POST['properties'] ?? '{}'), true) ?? [];
 
         if ($label === '') {
@@ -40,7 +45,7 @@ final class GraphController
         $input = [
             'fromName' => trim((string) ($_POST['fromName'] ?? '')),
             'toName' => trim((string) ($_POST['toName'] ?? '')),
-            'relationshipType' => preg_replace('/[^A-Za-z0-9_]/', '', (string) ($_POST['relationshipType'] ?? '')),
+            'relationshipType' => $this->sanitizeIdentifier((string) ($_POST['relationshipType'] ?? '')),
         ];
 
         foreach (['fromName', 'toName', 'relationshipType'] as $requiredField) {
@@ -69,6 +74,44 @@ final class GraphController
     {
         $query = trim((string) ($_GET['q'] ?? ''));
         $this->json(['ok' => true, 'names' => $this->graphModel->findNamesByPrefix($query)]);
+    }
+
+    public function schemaItems(): void
+    {
+        $this->json(['ok' => true, 'schema' => $this->graphModel->getSchemaItems()]);
+    }
+
+    public function storeSchemaItem(): void
+    {
+        $kind = (string) ($_POST['kind'] ?? '');
+        $name = $this->sanitizeIdentifier((string) ($_POST['name'] ?? ''));
+
+        if (!in_array($kind, ['node', 'relationship', 'property'], true)) {
+            $this->json(['ok' => false, 'message' => 'Tipo de item inválido.'], 422);
+            return;
+        }
+
+        if ($name === '') {
+            $this->json([
+                'ok' => false,
+                'message' => 'Use apenas letras, números e underscore, começando por letra ou underscore.',
+            ], 422);
+            return;
+        }
+
+        $this->graphModel->createSchemaItem($kind, $name);
+        $this->json(['ok' => true, 'message' => 'Item adicionado com sucesso.']);
+    }
+
+    private function sanitizeIdentifier(string $value): string
+    {
+        $identifier = preg_replace('/[^A-Za-z0-9_]/', '', trim($value)) ?? '';
+
+        if (!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $identifier)) {
+            return '';
+        }
+
+        return $identifier;
     }
 
     private function json(array $payload, int $status = 200): void

@@ -64,6 +64,11 @@ if ($method === 'GET' && $path === '/') {
     exit;
 }
 
+if ($method === 'GET' && $path === '/schema') {
+    $controller->schema();
+    exit;
+}
+
 if ($method === 'POST' && $path === '/node') {
     $controller->storeNode();
     exit;
@@ -81,6 +86,16 @@ if ($method === 'GET' && $path === '/relationship-types') {
 
 if ($method === 'GET' && $path === '/node-names') {
     $controller->nodeNames();
+    exit;
+}
+
+if ($method === 'GET' && $path === '/schema-items') {
+    $controller->schemaItems();
+    exit;
+}
+
+if ($method === 'POST' && $path === '/schema-items') {
+    $controller->storeSchemaItem();
     exit;
 }
 
