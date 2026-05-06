@@ -27,26 +27,38 @@ final class GraphModel
 
     public function getRelationshipTypes(): array
     {
-        return $this->collectProcedureColumn(
-            'CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType ORDER BY relationshipType',
-            'relationshipType'
+        return $this->mergeSchemaCatalogItems(
+            'relationship',
+            $this->collectProcedureColumn(
+                'MATCH ()-[relationship]->() RETURN DISTINCT type(relationship) AS relationshipType ORDER BY relationshipType',
+                'relationshipType'
+            )
         );
     }
 
     public function getNodeLabels(): array
     {
-        return $this->collectProcedureColumn(
-            'CALL db.labels() YIELD label RETURN label ORDER BY label',
-            'label'
+        return $this->mergeSchemaCatalogItems(
+            'node',
+            $this->collectProcedureColumn(
+                'MATCH (node) WHERE NOT node:__BlowmindSchemaItem UNWIND labels(node) AS label RETURN DISTINCT label ORDER BY label',
+                'label'
+            )
         );
     }
 
     public function getPropertyKeys(): array
     {
-        return $this->collectProcedureColumn(
-            'CALL db.propertyKeys() YIELD propertyKey RETURN propertyKey ORDER BY propertyKey',
+        $nodeProperties = $this->collectProcedureColumn(
+            'MATCH (node) WHERE NOT node:__BlowmindSchemaItem UNWIND keys(node) AS propertyKey RETURN DISTINCT propertyKey',
             'propertyKey'
         );
+        $relationshipProperties = $this->collectProcedureColumn(
+            'MATCH ()-[relationship]->() UNWIND keys(relationship) AS propertyKey RETURN DISTINCT propertyKey',
+            'propertyKey'
+        );
+
+        return $this->mergeSchemaCatalogItems('property', array_merge($nodeProperties, $relationshipProperties));
     }
 
     public function getSchemaItems(): array
@@ -60,24 +72,21 @@ final class GraphModel
 
     public function createSchemaItem(string $kind, string $name): void
     {
-        $procedureByKind = [
-            'node' => 'db.createLabel',
-            'relationship' => 'db.createRelationshipType',
-            'property' => 'db.createProperty',
-        ];
-
-        $procedure = $procedureByKind[$kind] ?? null;
-
-        if ($procedure === null) {
+        if (!$this->isValidSchemaKind($kind)) {
             return;
         }
 
-        Database::client()->run(sprintf('CALL %s($name)', $procedure), ['name' => $name]);
+        Database::client()->run(
+            'MERGE (item:__BlowmindSchemaItem {kind: $kind, name: $name})
+             ON CREATE SET item.uuid = randomUUID(), item.createdAt = datetime()
+             SET item.updatedAt = datetime()',
+            ['kind' => $kind, 'name' => $name]
+        );
     }
 
     public function renameSchemaItem(string $kind, string $oldName, string $newName): void
     {
-        if ($oldName === $newName) {
+        if (!$this->isValidSchemaKind($kind) || $oldName === $newName) {
             return;
         }
 
@@ -85,34 +94,54 @@ final class GraphModel
         $new = $this->quoteIdentifier($newName);
 
         if ($kind === 'node') {
-            $this->createSchemaItem('node', $newName);
-            Database::client()->run(sprintf('MATCH (n:%s) SET n:%s REMOVE n:%s', $old, $new, $old));
+            Database::client()->run(sprintf('MATCH (node:%s) SET node:%s REMOVE node:%s', $old, $new, $old));
+            $this->renameSchemaCatalogItem($kind, $oldName, $newName);
             return;
         }
 
         if ($kind === 'relationship') {
-            $this->createSchemaItem('relationship', $newName);
             Database::client()->run(sprintf(
-                'MATCH (source)-[relationship:%s]->(target) CREATE (source)-[renamed:%s]->(target) SET renamed = properties(relationship) DELETE relationship',
+                'MATCH (source)-[relationship:%s]->(target)
+                 CREATE (source)-[renamed:%s]->(target)
+                 SET renamed = properties(relationship)
+                 DELETE relationship',
                 $old,
                 $new
             ));
+            $this->renameSchemaCatalogItem($kind, $oldName, $newName);
             return;
         }
 
         if ($kind === 'property') {
-            $this->createSchemaItem('property', $newName);
-            Database::client()->run(sprintf('MATCH (n) WHERE n.%s IS NOT NULL SET n.%s = n.%s REMOVE n.%s', $old, $new, $old, $old));
-            Database::client()->run(sprintf('MATCH ()-[relationship]-() WHERE relationship.%s IS NOT NULL SET relationship.%s = relationship.%s REMOVE relationship.%s', $old, $new, $old, $old));
+            Database::client()->run(sprintf(
+                'MATCH (node) WHERE node.%s IS NOT NULL SET node.%s = node.%s REMOVE node.%s',
+                $old,
+                $new,
+                $old,
+                $old
+            ));
+            Database::client()->run(sprintf(
+                'MATCH ()-[relationship]->() WHERE relationship.%s IS NOT NULL SET relationship.%s = relationship.%s REMOVE relationship.%s',
+                $old,
+                $new,
+                $old,
+                $old
+            ));
+            $this->renameSchemaCatalogItem($kind, $oldName, $newName);
         }
     }
 
     public function deleteSchemaItem(string $kind, string $name): void
     {
+        if (!$this->isValidSchemaKind($kind)) {
+            return;
+        }
+
         $identifier = $this->quoteIdentifier($name);
+        $this->deleteSchemaCatalogItem($kind, $name);
 
         if ($kind === 'node') {
-            Database::client()->run(sprintf('MATCH (n:%s) DETACH DELETE n', $identifier));
+            Database::client()->run(sprintf('MATCH (node:%s) DETACH DELETE node', $identifier));
             return;
         }
 
@@ -122,14 +151,54 @@ final class GraphModel
         }
 
         if ($kind === 'property') {
-            Database::client()->run(sprintf('MATCH (n) REMOVE n.%s', $identifier));
-            Database::client()->run(sprintf('MATCH ()-[relationship]-() REMOVE relationship.%s', $identifier));
+            Database::client()->run(sprintf('MATCH (node) REMOVE node.%s', $identifier));
+            Database::client()->run(sprintf('MATCH ()-[relationship]->() REMOVE relationship.%s', $identifier));
         }
     }
 
-    private function collectProcedureColumn(string $query, string $column): array
+    private function mergeSchemaCatalogItems(string $kind, array $databaseItems): array
     {
-        $result = Database::client()->run($query);
+        $items = array_merge($databaseItems, $this->getSchemaCatalogItems($kind));
+        $items = array_values(array_unique(array_filter($items)));
+        sort($items, SORT_NATURAL | SORT_FLAG_CASE);
+
+        return $items;
+    }
+
+    private function getSchemaCatalogItems(string $kind): array
+    {
+        return $this->collectProcedureColumn(
+            'MATCH (item:__BlowmindSchemaItem {kind: $kind}) RETURN DISTINCT item.name AS name ORDER BY name',
+            'name',
+            ['kind' => $kind]
+        );
+    }
+
+    private function renameSchemaCatalogItem(string $kind, string $oldName, string $newName): void
+    {
+        Database::client()->run(
+            'MATCH (item:__BlowmindSchemaItem {kind: $kind, name: $oldName})
+             SET item.name = $newName, item.updatedAt = datetime()',
+            ['kind' => $kind, 'oldName' => $oldName, 'newName' => $newName]
+        );
+    }
+
+    private function deleteSchemaCatalogItem(string $kind, string $name): void
+    {
+        Database::client()->run(
+            'MATCH (item:__BlowmindSchemaItem {kind: $kind, name: $name}) DETACH DELETE item',
+            ['kind' => $kind, 'name' => $name]
+        );
+    }
+
+    private function isValidSchemaKind(string $kind): bool
+    {
+        return in_array($kind, ['node', 'relationship', 'property'], true);
+    }
+
+    private function collectProcedureColumn(string $query, string $column, array $parameters = []): array
+    {
+        $result = Database::client()->run($query, $parameters);
 
         return array_values(array_filter(array_map(
             static fn ($record): string => (string) $record->get($column),
