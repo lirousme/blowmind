@@ -157,14 +157,18 @@ editForm.addEventListener('submit', async (event) => {
 
 deleteButton.addEventListener('click', async () => {
   const itemName = editOldName.value;
-  const confirmed = window.confirm(`Excluir "${itemName}"? Essa ação altera os dados que usam este item.`);
+  const itemKind = editKind.value;
+  const confirmationMessage = itemKind === 'node'
+    ? `Excluir todos os nodes do tipo "${itemName}" e suas relações?`
+    : `Excluir "${itemName}"? Essa ação altera os dados que usam este item.`;
+  const confirmed = window.confirm(confirmationMessage);
 
   if (!confirmed) {
     return;
   }
 
   const data = new FormData();
-  data.append('kind', editKind.value);
+  data.append('kind', itemKind);
   data.append('name', itemName);
   await requestSchemaAction('/schema-items/delete', data);
 });
