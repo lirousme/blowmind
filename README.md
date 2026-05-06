@@ -12,7 +12,8 @@ A view principal está em `view/graph-editor.php` e permite:
 - Criar relações
 
 A view de catálogo está em `view/schema-catalog.php` e permite:
-- Listar labels de nodes, tipos de relationships e property keys usados pelos dados atuais do banco
+- Listar labels de nodes, tipos de relationships e property keys encontrados no banco atual
+- Adicionar nomes ao catálogo de schema sem criar nodes, relationships ou property keys automaticamente
 - Renomear ou excluir labels, tipos de relationships e property keys existentes
 
 ## Configuração

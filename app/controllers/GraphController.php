@@ -102,12 +102,12 @@ final class GraphController
         if (!$this->graphModel->createSchemaItem($kind, $name)) {
             $this->json([
                 'ok' => false,
-                'message' => 'O schema lista apenas itens que já existem nos dados. Crie nodes e relações pelo editor.',
+                'message' => 'Não foi possível adicionar este item ao catálogo de schema.',
             ], 422);
             return;
         }
 
-        $this->json(['ok' => true, 'message' => 'Item adicionado com sucesso.']);
+        $this->json(['ok' => true, 'message' => 'Item adicionado ao catálogo. Nenhum node, relação ou propriedade foi criado automaticamente.']);
     }
 
     public function updateSchemaItem(): void

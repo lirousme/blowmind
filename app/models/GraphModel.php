@@ -30,7 +30,9 @@ final class GraphModel
     public function getRelationshipTypes(): array
     {
         return $this->collectProcedureColumn(
-            'MATCH ()-[relationship]->() RETURN DISTINCT type(relationship) AS relationshipType ORDER BY relationshipType',
+            'CALL db.relationshipTypes() YIELD relationshipType
+             RETURN relationshipType
+             ORDER BY relationshipType',
             'relationshipType'
         );
     }
@@ -38,10 +40,7 @@ final class GraphModel
     public function getNodeLabels(): array
     {
         return $this->collectProcedureColumn(
-            'MATCH (node)
-             WHERE NOT node:' . self::INTERNAL_SCHEMA_LABEL . '
-             UNWIND labels(node) AS label
-             WITH DISTINCT label
+            'CALL db.labels() YIELD label
              WHERE label <> $internalLabel
              RETURN label
              ORDER BY label',
@@ -76,20 +75,27 @@ final class GraphModel
 
     public function getSchemaItems(): array
     {
-        $this->deleteLegacySchemaCatalogItems();
-
         return [
-            'nodes' => $this->getNodeLabels(),
-            'relationships' => $this->getRelationshipTypes(),
-            'propertyKeys' => $this->getPropertyKeys(),
+            'nodes' => $this->mergeSchemaCatalogItems('node', $this->getNodeLabels()),
+            'relationships' => $this->mergeSchemaCatalogItems('relationship', $this->getRelationshipTypes()),
+            'propertyKeys' => $this->mergeSchemaCatalogItems('property', $this->getPropertyKeys()),
         ];
     }
 
     public function createSchemaItem(string $kind, string $name): bool
     {
-        unset($kind, $name);
+        if (!$this->isValidSchemaKind($kind) || $name === '') {
+            return false;
+        }
 
-        return false;
+        Database::client()->run(
+            'MERGE (item:' . self::INTERNAL_SCHEMA_LABEL . ' {kind: $kind, name: $name})
+             ON CREATE SET item.createdAt = datetime()
+             SET item.updatedAt = datetime()',
+            ['kind' => $kind, 'name' => $name]
+        );
+
+        return true;
     }
 
     public function renameSchemaItem(string $kind, string $oldName, string $newName): bool
@@ -98,8 +104,23 @@ final class GraphModel
             return false;
         }
 
-        if (!$this->schemaItemExists($kind, $oldName)) {
+        $existsInData = $this->schemaItemExistsInData($kind, $oldName);
+        $existsInCatalog = $this->schemaItemExistsInCatalog($kind, $oldName);
+
+        if (!$existsInData && !$existsInCatalog) {
             return false;
+        }
+
+        if ($existsInCatalog) {
+            Database::client()->run(
+                'MATCH (item:' . self::INTERNAL_SCHEMA_LABEL . ' {kind: $kind, name: $oldName})
+                 SET item.name = $newName, item.updatedAt = datetime()',
+                ['kind' => $kind, 'oldName' => $oldName, 'newName' => $newName]
+            );
+        }
+
+        if (!$existsInData) {
+            return true;
         }
 
         $old = $this->quoteIdentifier($oldName);
@@ -146,8 +167,26 @@ final class GraphModel
 
     public function deleteSchemaItem(string $kind, string $name): bool
     {
-        if (!$this->isValidSchemaKind($kind) || !$this->schemaItemExists($kind, $name)) {
+        if (!$this->isValidSchemaKind($kind)) {
             return false;
+        }
+
+        $existsInData = $this->schemaItemExistsInData($kind, $name);
+        $existsInCatalog = $this->schemaItemExistsInCatalog($kind, $name);
+
+        if (!$existsInData && !$existsInCatalog) {
+            return false;
+        }
+
+        if ($existsInCatalog) {
+            Database::client()->run(
+                'MATCH (item:' . self::INTERNAL_SCHEMA_LABEL . ' {kind: $kind, name: $name}) DETACH DELETE item',
+                ['kind' => $kind, 'name' => $name]
+            );
+        }
+
+        if (!$existsInData) {
+            return true;
         }
 
         $identifier = $this->quoteIdentifier($name);
@@ -168,7 +207,7 @@ final class GraphModel
         return true;
     }
 
-    private function schemaItemExists(string $kind, string $name): bool
+    private function schemaItemExistsInData(string $kind, string $name): bool
     {
         $identifier = $this->quoteIdentifier($name);
 
@@ -189,9 +228,29 @@ final class GraphModel
         ) > 0;
     }
 
-    private function deleteLegacySchemaCatalogItems(): void
+
+    private function schemaItemExistsInCatalog(string $kind, string $name): bool
     {
-        Database::client()->run('MATCH (item:' . self::INTERNAL_SCHEMA_LABEL . ') DETACH DELETE item');
+        return $this->countQuery(
+            'MATCH (item:' . self::INTERNAL_SCHEMA_LABEL . ' {kind: $kind, name: $name}) RETURN count(item) AS total',
+            ['kind' => $kind, 'name' => $name]
+        ) > 0;
+    }
+
+    private function mergeSchemaCatalogItems(string $kind, array $databaseItems): array
+    {
+        $catalogItems = $this->collectProcedureColumn(
+            'MATCH (item:' . self::INTERNAL_SCHEMA_LABEL . ' {kind: $kind})
+             RETURN item.name AS name
+             ORDER BY name',
+            'name',
+            ['kind' => $kind]
+        );
+
+        $items = array_values(array_unique(array_merge($databaseItems, $catalogItems)));
+        sort($items, SORT_NATURAL | SORT_FLAG_CASE);
+
+        return $items;
     }
 
     private function isValidSchemaKind(string $kind): bool
