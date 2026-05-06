@@ -86,7 +86,7 @@ final class GraphController
         $kind = (string) ($_POST['kind'] ?? '');
         $name = $this->sanitizeIdentifier((string) ($_POST['name'] ?? ''));
 
-        if (!in_array($kind, ['node', 'relationship', 'property'], true)) {
+        if (!$this->isValidSchemaKind($kind)) {
             $this->json(['ok' => false, 'message' => 'Tipo de item inválido.'], 422);
             return;
         }
@@ -101,6 +101,56 @@ final class GraphController
 
         $this->graphModel->createSchemaItem($kind, $name);
         $this->json(['ok' => true, 'message' => 'Item adicionado com sucesso.']);
+    }
+
+    public function updateSchemaItem(): void
+    {
+        $kind = (string) ($_POST['kind'] ?? '');
+        $oldName = $this->sanitizeIdentifier((string) ($_POST['oldName'] ?? ''));
+        $newName = $this->sanitizeIdentifier((string) ($_POST['newName'] ?? ''));
+
+        if (!$this->isValidSchemaKind($kind)) {
+            $this->json(['ok' => false, 'message' => 'Tipo de item inválido.'], 422);
+            return;
+        }
+
+        if ($oldName === '' || $newName === '') {
+            $this->json([
+                'ok' => false,
+                'message' => 'Use apenas letras, números e underscore, começando por letra ou underscore.',
+            ], 422);
+            return;
+        }
+
+        $this->graphModel->renameSchemaItem($kind, $oldName, $newName);
+        $this->json(['ok' => true, 'message' => 'Item atualizado com sucesso.']);
+    }
+
+    public function deleteSchemaItem(): void
+    {
+        $kind = (string) ($_POST['kind'] ?? '');
+        $name = $this->sanitizeIdentifier((string) ($_POST['name'] ?? ''));
+
+        if (!$this->isValidSchemaKind($kind)) {
+            $this->json(['ok' => false, 'message' => 'Tipo de item inválido.'], 422);
+            return;
+        }
+
+        if ($name === '') {
+            $this->json([
+                'ok' => false,
+                'message' => 'Use apenas letras, números e underscore, começando por letra ou underscore.',
+            ], 422);
+            return;
+        }
+
+        $this->graphModel->deleteSchemaItem($kind, $name);
+        $this->json(['ok' => true, 'message' => 'Item excluído com sucesso.']);
+    }
+
+    private function isValidSchemaKind(string $kind): bool
+    {
+        return in_array($kind, ['node', 'relationship', 'property'], true);
     }
 
     private function sanitizeIdentifier(string $value): string

@@ -99,6 +99,16 @@ if ($method === 'POST' && $path === '/schema-items') {
     exit;
 }
 
+if ($method === 'POST' && $path === '/schema-items/update') {
+    $controller->updateSchemaItem();
+    exit;
+}
+
+if ($method === 'POST' && $path === '/schema-items/delete') {
+    $controller->deleteSchemaItem();
+    exit;
+}
+
 http_response_code(404);
 header('Content-Type: text/plain; charset=utf-8');
 echo 'Rota não encontrada.';
