@@ -99,7 +99,14 @@ final class GraphController
             return;
         }
 
-        $this->graphModel->createSchemaItem($kind, $name);
+        if (!$this->graphModel->createSchemaItem($kind, $name)) {
+            $this->json([
+                'ok' => false,
+                'message' => 'O schema lista apenas itens que já existem nos dados. Crie nodes e relações pelo editor.',
+            ], 422);
+            return;
+        }
+
         $this->json(['ok' => true, 'message' => 'Item adicionado com sucesso.']);
     }
 
@@ -122,7 +129,14 @@ final class GraphController
             return;
         }
 
-        $this->graphModel->renameSchemaItem($kind, $oldName, $newName);
+        if (!$this->graphModel->renameSchemaItem($kind, $oldName, $newName)) {
+            $this->json([
+                'ok' => false,
+                'message' => 'Não encontramos esse item nos dados atuais para alterar.',
+            ], 404);
+            return;
+        }
+
         $this->json(['ok' => true, 'message' => 'Item atualizado com sucesso.']);
     }
 
@@ -144,7 +158,14 @@ final class GraphController
             return;
         }
 
-        $this->graphModel->deleteSchemaItem($kind, $name);
+        if (!$this->graphModel->deleteSchemaItem($kind, $name)) {
+            $this->json([
+                'ok' => false,
+                'message' => 'Não encontramos esse item nos dados atuais para excluir.',
+            ], 404);
+            return;
+        }
+
         $this->json(['ok' => true, 'message' => 'Item excluído com sucesso.']);
     }
 

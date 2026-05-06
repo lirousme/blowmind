@@ -8,6 +8,8 @@ use App\Core\Database;
 
 final class GraphModel
 {
+    private const INTERNAL_SCHEMA_LABEL = '__BlowmindSchemaItem';
+
     public function findNamesByPrefix(string $query, int $limit = 8): array
     {
         if ($query === '') {
@@ -27,66 +29,55 @@ final class GraphModel
 
     public function getRelationshipTypes(): array
     {
-        $relationshipTypes = $this->collectProcedureColumn(
+        return $this->collectProcedureColumn(
             'MATCH ()-[relationship]->() RETURN DISTINCT type(relationship) AS relationshipType ORDER BY relationshipType',
             'relationshipType'
         );
-
-        if ($relationshipTypes === []) {
-            $relationshipTypes = $this->collectProcedureColumn(
-                'CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType ORDER BY relationshipType',
-                'relationshipType'
-            );
-        }
-
-        return $this->mergeSchemaCatalogItems('relationship', $relationshipTypes);
     }
 
     public function getNodeLabels(): array
     {
-        $nodeLabels = $this->collectProcedureColumn(
-            'MATCH (node) WHERE NOT node:__BlowmindSchemaItem UNWIND labels(node) AS label RETURN DISTINCT label ORDER BY label',
-            'label'
+        return $this->collectProcedureColumn(
+            'MATCH (node)
+             WHERE NOT node:' . self::INTERNAL_SCHEMA_LABEL . '
+             UNWIND labels(node) AS label
+             WITH DISTINCT label
+             WHERE label <> $internalLabel
+             RETURN label
+             ORDER BY label',
+            'label',
+            ['internalLabel' => self::INTERNAL_SCHEMA_LABEL]
         );
-
-        if ($nodeLabels === []) {
-            $nodeLabels = array_values(array_diff(
-                $this->collectProcedureColumn(
-                    'CALL db.labels() YIELD label RETURN label ORDER BY label',
-                    'label'
-                ),
-                ['__BlowmindSchemaItem']
-            ));
-        }
-
-        return $this->mergeSchemaCatalogItems('node', $nodeLabels);
     }
 
     public function getPropertyKeys(): array
     {
         $nodeProperties = $this->collectProcedureColumn(
-            'MATCH (node) WHERE NOT node:__BlowmindSchemaItem UNWIND keys(node) AS propertyKey RETURN DISTINCT propertyKey',
+            'MATCH (node)
+             WHERE NOT node:' . self::INTERNAL_SCHEMA_LABEL . '
+             UNWIND keys(node) AS propertyKey
+             RETURN DISTINCT propertyKey
+             ORDER BY propertyKey',
             'propertyKey'
         );
         $relationshipProperties = $this->collectProcedureColumn(
-            'MATCH ()-[relationship]->() UNWIND keys(relationship) AS propertyKey RETURN DISTINCT propertyKey',
+            'MATCH ()-[relationship]->()
+             UNWIND keys(relationship) AS propertyKey
+             RETURN DISTINCT propertyKey
+             ORDER BY propertyKey',
             'propertyKey'
         );
 
-        $propertyKeys = array_merge($nodeProperties, $relationshipProperties);
+        $propertyKeys = array_values(array_unique(array_merge($nodeProperties, $relationshipProperties)));
+        sort($propertyKeys, SORT_NATURAL | SORT_FLAG_CASE);
 
-        if ($propertyKeys === []) {
-            $propertyKeys = $this->collectProcedureColumn(
-                'CALL db.propertyKeys() YIELD propertyKey RETURN propertyKey ORDER BY propertyKey',
-                'propertyKey'
-            );
-        }
-
-        return $this->mergeSchemaCatalogItems('property', $propertyKeys);
+        return $propertyKeys;
     }
 
     public function getSchemaItems(): array
     {
+        $this->deleteLegacySchemaCatalogItems();
+
         return [
             'nodes' => $this->getNodeLabels(),
             'relationships' => $this->getRelationshipTypes(),
@@ -94,24 +85,21 @@ final class GraphModel
         ];
     }
 
-    public function createSchemaItem(string $kind, string $name): void
+    public function createSchemaItem(string $kind, string $name): bool
     {
-        if (!$this->isValidSchemaKind($kind)) {
-            return;
-        }
+        unset($kind, $name);
 
-        Database::client()->run(
-            'MERGE (item:__BlowmindSchemaItem {kind: $kind, name: $name})
-             ON CREATE SET item.uuid = randomUUID(), item.createdAt = datetime()
-             SET item.updatedAt = datetime()',
-            ['kind' => $kind, 'name' => $name]
-        );
+        return false;
     }
 
-    public function renameSchemaItem(string $kind, string $oldName, string $newName): void
+    public function renameSchemaItem(string $kind, string $oldName, string $newName): bool
     {
         if (!$this->isValidSchemaKind($kind) || $oldName === $newName) {
-            return;
+            return false;
+        }
+
+        if (!$this->schemaItemExists($kind, $oldName)) {
+            return false;
         }
 
         $old = $this->quoteIdentifier($oldName);
@@ -119,8 +107,7 @@ final class GraphModel
 
         if ($kind === 'node') {
             Database::client()->run(sprintf('MATCH (node:%s) SET node:%s REMOVE node:%s', $old, $new, $old));
-            $this->renameSchemaCatalogItem($kind, $oldName, $newName);
-            return;
+            return true;
         }
 
         if ($kind === 'relationship') {
@@ -132,100 +119,95 @@ final class GraphModel
                 $old,
                 $new
             ));
-            $this->renameSchemaCatalogItem($kind, $oldName, $newName);
-            return;
+            return true;
         }
 
-        if ($kind === 'property') {
-            Database::client()->run(sprintf(
-                'MATCH (node) WHERE node.%s IS NOT NULL SET node.%s = node.%s REMOVE node.%s',
-                $old,
-                $new,
-                $old,
-                $old
-            ));
-            Database::client()->run(sprintf(
-                'MATCH ()-[relationship]->() WHERE relationship.%s IS NOT NULL SET relationship.%s = relationship.%s REMOVE relationship.%s',
-                $old,
-                $new,
-                $old,
-                $old
-            ));
-            $this->renameSchemaCatalogItem($kind, $oldName, $newName);
-        }
+        Database::client()->run(sprintf(
+            'MATCH (node)
+             WHERE $oldName IN keys(node)
+             SET node.%s = node.%s
+             REMOVE node.%s',
+            $new,
+            $old,
+            $old
+        ), ['oldName' => $oldName]);
+        Database::client()->run(sprintf(
+            'MATCH ()-[relationship]->()
+             WHERE $oldName IN keys(relationship)
+             SET relationship.%s = relationship.%s
+             REMOVE relationship.%s',
+            $new,
+            $old,
+            $old
+        ), ['oldName' => $oldName]);
+
+        return true;
     }
 
-    public function deleteSchemaItem(string $kind, string $name): void
+    public function deleteSchemaItem(string $kind, string $name): bool
     {
-        if (!$this->isValidSchemaKind($kind)) {
-            return;
+        if (!$this->isValidSchemaKind($kind) || !$this->schemaItemExists($kind, $name)) {
+            return false;
         }
 
         $identifier = $this->quoteIdentifier($name);
-        $this->deleteSchemaCatalogItem($kind, $name);
 
         if ($kind === 'node') {
             Database::client()->run(sprintf('MATCH (node:%s) DETACH DELETE node', $identifier));
-            return;
+            return true;
         }
 
         if ($kind === 'relationship') {
             Database::client()->run(sprintf('MATCH ()-[relationship:%s]-() DELETE relationship', $identifier));
-            return;
+            return true;
         }
 
-        if ($kind === 'property') {
-            Database::client()->run(sprintf('MATCH (node) REMOVE node.%s', $identifier));
-            Database::client()->run(sprintf('MATCH ()-[relationship]->() REMOVE relationship.%s', $identifier));
+        Database::client()->run(sprintf('MATCH (node) REMOVE node.%s', $identifier));
+        Database::client()->run(sprintf('MATCH ()-[relationship]->() REMOVE relationship.%s', $identifier));
+
+        return true;
+    }
+
+    private function schemaItemExists(string $kind, string $name): bool
+    {
+        $identifier = $this->quoteIdentifier($name);
+
+        if ($kind === 'node') {
+            return $this->countQuery(sprintf('MATCH (node:%s) RETURN count(node) AS total', $identifier)) > 0;
         }
+
+        if ($kind === 'relationship') {
+            return $this->countQuery(sprintf('MATCH ()-[relationship:%s]-() RETURN count(relationship) AS total', $identifier)) > 0;
+        }
+
+        return $this->countQuery(
+            'MATCH (node) WHERE $name IN keys(node) RETURN count(node) AS total',
+            ['name' => $name]
+        ) > 0 || $this->countQuery(
+            'MATCH ()-[relationship]->() WHERE $name IN keys(relationship) RETURN count(relationship) AS total',
+            ['name' => $name]
+        ) > 0;
     }
 
-    private function mergeSchemaCatalogItems(string $kind, array $databaseItems): array
+    private function deleteLegacySchemaCatalogItems(): void
     {
-        $items = array_merge($databaseItems, $this->getSchemaCatalogItems($kind));
-        $items = array_values(array_unique(array_filter(
-            $items,
-            static fn (string $item): bool => $item !== ''
-        )));
-        sort($items, SORT_NATURAL | SORT_FLAG_CASE);
-
-        return $items;
-    }
-
-    private function getSchemaCatalogItems(string $kind): array
-    {
-        return $this->collectProcedureColumn(
-            'MATCH (item:__BlowmindSchemaItem {kind: $kind}) RETURN DISTINCT item.name AS name ORDER BY name',
-            'name',
-            ['kind' => $kind]
-        );
-    }
-
-    private function renameSchemaCatalogItem(string $kind, string $oldName, string $newName): void
-    {
-        Database::client()->run(
-            'MERGE (renamed:__BlowmindSchemaItem {kind: $kind, name: $newName})
-             ON CREATE SET renamed.uuid = randomUUID(), renamed.createdAt = datetime()
-             SET renamed.updatedAt = datetime()
-             WITH renamed
-             MATCH (old:__BlowmindSchemaItem {kind: $kind, name: $oldName})
-             WHERE old <> renamed
-             DETACH DELETE old',
-            ['kind' => $kind, 'oldName' => $oldName, 'newName' => $newName]
-        );
-    }
-
-    private function deleteSchemaCatalogItem(string $kind, string $name): void
-    {
-        Database::client()->run(
-            'MATCH (item:__BlowmindSchemaItem {kind: $kind, name: $name}) DETACH DELETE item',
-            ['kind' => $kind, 'name' => $name]
-        );
+        Database::client()->run('MATCH (item:' . self::INTERNAL_SCHEMA_LABEL . ') DETACH DELETE item');
     }
 
     private function isValidSchemaKind(string $kind): bool
     {
         return in_array($kind, ['node', 'relationship', 'property'], true);
+    }
+
+    private function countQuery(string $query, array $parameters = []): int
+    {
+        $result = Database::client()->run($query, $parameters);
+
+        foreach ($result as $record) {
+            return (int) $record->get('total');
+        }
+
+        return 0;
     }
 
     private function collectProcedureColumn(string $query, string $column, array $parameters = []): array
@@ -255,6 +237,11 @@ final class GraphModel
     private function quoteIdentifier(string $identifier): string
     {
         return '`' . str_replace('`', '``', $identifier) . '`';
+    }
+
+    private function quoteStringLiteral(string $value): string
+    {
+        return "'" . str_replace("'", "\\'", $value) . "'";
     }
 
     public function createNode(string $label, array $properties): void

@@ -23,7 +23,7 @@ if ($baseUrl === '' || $baseUrl === '.') {
         <a href="<?= htmlspecialchars($baseUrl . '/index.php', ENT_QUOTES) ?>" class="text-sm text-emerald-400 hover:text-emerald-300">← Voltar ao editor</a>
         <div>
           <h1 class="text-3xl font-bold">Catálogo do grafo</h1>
-          <p class="text-slate-400 mt-2">Veja e cadastre os tokens de schema já existentes no banco atual.</p>
+          <p class="text-slate-400 mt-2">Veja e altere os itens de schema que existem nos dados atuais do banco.</p>
         </div>
       </header>
 
@@ -33,10 +33,6 @@ if ($baseUrl === '' || $baseUrl === '.') {
             <h2 class="text-xl font-semibold">Nodes</h2>
             <p class="text-sm text-slate-400">Labels cadastradas no Neo4j.</p>
           </div>
-          <form class="schema-form flex gap-2" data-kind="node">
-            <input name="name" class="min-w-0 flex-1 bg-slate-800 border border-slate-700 rounded-xl p-2" placeholder="Nova label" required />
-            <button class="bg-emerald-600 hover:bg-emerald-500 px-3 py-2 rounded-xl" type="submit">Adicionar</button>
-          </form>
           <ul id="nodeList" class="schema-list space-y-2 text-sm"></ul>
         </article>
 
@@ -45,10 +41,6 @@ if ($baseUrl === '' || $baseUrl === '.') {
             <h2 class="text-xl font-semibold">Relationships</h2>
             <p class="text-sm text-slate-400">Tipos de relação cadastrados no Neo4j.</p>
           </div>
-          <form class="schema-form flex gap-2" data-kind="relationship">
-            <input name="name" class="min-w-0 flex-1 bg-slate-800 border border-slate-700 rounded-xl p-2" placeholder="Novo tipo" required />
-            <button class="bg-emerald-600 hover:bg-emerald-500 px-3 py-2 rounded-xl" type="submit">Adicionar</button>
-          </form>
           <ul id="relationshipList" class="schema-list space-y-2 text-sm"></ul>
         </article>
 
@@ -57,10 +49,6 @@ if ($baseUrl === '' || $baseUrl === '.') {
             <h2 class="text-xl font-semibold">Property keys</h2>
             <p class="text-sm text-slate-400">Chaves de propriedades cadastradas no Neo4j.</p>
           </div>
-          <form class="schema-form flex gap-2" data-kind="property">
-            <input name="name" class="min-w-0 flex-1 bg-slate-800 border border-slate-700 rounded-xl p-2" placeholder="Nova chave" required />
-            <button class="bg-emerald-600 hover:bg-emerald-500 px-3 py-2 rounded-xl" type="submit">Adicionar</button>
-          </form>
           <ul id="propertyList" class="schema-list space-y-2 text-sm"></ul>
         </article>
       </section>
