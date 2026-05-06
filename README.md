@@ -30,6 +30,11 @@ A view de catálogo está em `view/schema-catalog.php` e permite:
 Configurada em `config/database.php` com:
 `bolt://neo4j:75351595@localhost:7687`
 
+## Índice de busca
+Ao abrir uma conexão com o Neo4j, a aplicação garante automaticamente o índice
+`node_nome_lookup_index` para `(:Node {nome})`. Esse índice acelera buscas por
+prefixo em nomes de nodes e também ajuda os `MERGE` usados na criação de relações.
+
 ## Solução do erro `vendor/autoload.php`
 Se aparecer o erro abaixo:
 
