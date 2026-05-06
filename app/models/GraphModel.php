@@ -112,7 +112,7 @@ final class GraphModel
         $identifier = $this->quoteIdentifier($name);
 
         if ($kind === 'node') {
-            Database::client()->run(sprintf('MATCH (n:%s) REMOVE n:%s', $identifier, $identifier));
+            Database::client()->run(sprintf('MATCH (n:%s) DETACH DELETE n', $identifier));
             return;
         }
 
