@@ -23,7 +23,7 @@ if ($baseUrl === '' || $baseUrl === '.') {
         <a href="<?= htmlspecialchars($baseUrl . '/index.php', ENT_QUOTES) ?>" class="text-sm text-emerald-400 hover:text-emerald-300">← Voltar ao editor</a>
         <div>
           <h1 class="text-3xl font-bold">Catálogo do grafo</h1>
-          <p class="text-slate-400 mt-2">Veja e altere os itens de schema que existem nos dados atuais do banco.</p>
+          <p class="text-slate-400 mt-2">Veja os itens que já existem no banco atual e adicione nomes ao catálogo sem criar nodes, relações ou propriedades automaticamente.</p>
         </div>
       </header>
 
@@ -33,6 +33,11 @@ if ($baseUrl === '' || $baseUrl === '.') {
             <h2 class="text-xl font-semibold">Nodes</h2>
             <p class="text-sm text-slate-400">Labels cadastradas no Neo4j.</p>
           </div>
+          <form class="schema-form flex gap-2" data-kind="node">
+            <label class="sr-only" for="nodeName">Adicionar node</label>
+            <input id="nodeName" name="name" class="min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-800 p-2 text-sm" placeholder="Adicionar node" autocomplete="off" required />
+            <button class="shrink-0 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-medium hover:bg-emerald-500" type="submit">Adicionar</button>
+          </form>
           <ul id="nodeList" class="schema-list space-y-2 text-sm"></ul>
         </article>
 
@@ -41,6 +46,11 @@ if ($baseUrl === '' || $baseUrl === '.') {
             <h2 class="text-xl font-semibold">Relationships</h2>
             <p class="text-sm text-slate-400">Tipos de relação cadastrados no Neo4j.</p>
           </div>
+          <form class="schema-form flex gap-2" data-kind="relationship">
+            <label class="sr-only" for="relationshipName">Adicionar relationship</label>
+            <input id="relationshipName" name="name" class="min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-800 p-2 text-sm" placeholder="Adicionar relationship" autocomplete="off" required />
+            <button class="shrink-0 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-medium hover:bg-emerald-500" type="submit">Adicionar</button>
+          </form>
           <ul id="relationshipList" class="schema-list space-y-2 text-sm"></ul>
         </article>
 
@@ -49,6 +59,11 @@ if ($baseUrl === '' || $baseUrl === '.') {
             <h2 class="text-xl font-semibold">Property keys</h2>
             <p class="text-sm text-slate-400">Chaves de propriedades cadastradas no Neo4j.</p>
           </div>
+          <form class="schema-form flex gap-2" data-kind="property">
+            <label class="sr-only" for="propertyName">Adicionar property key</label>
+            <input id="propertyName" name="name" class="min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-800 p-2 text-sm" placeholder="Adicionar property key" autocomplete="off" required />
+            <button class="shrink-0 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-medium hover:bg-emerald-500" type="submit">Adicionar</button>
+          </form>
           <ul id="propertyList" class="schema-list space-y-2 text-sm"></ul>
         </article>
       </section>
