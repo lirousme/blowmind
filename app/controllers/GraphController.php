@@ -28,7 +28,7 @@ final class GraphController
 
     public function storeNode(): void
     {
-        $label = $this->sanitizeIdentifier((string) ($_POST['label'] ?? ''));
+        $label = $this->normalizeSchemaName((string) ($_POST['label'] ?? ''));
         $properties = json_decode((string) ($_POST['properties'] ?? '{}'), true) ?? [];
 
         if ($label === '') {
@@ -45,7 +45,7 @@ final class GraphController
         $input = [
             'fromName' => trim((string) ($_POST['fromName'] ?? '')),
             'toName' => trim((string) ($_POST['toName'] ?? '')),
-            'relationshipType' => $this->sanitizeIdentifier((string) ($_POST['relationshipType'] ?? '')),
+            'relationshipType' => $this->normalizeSchemaName((string) ($_POST['relationshipType'] ?? '')),
         ];
 
         foreach (['fromName', 'toName', 'relationshipType'] as $requiredField) {
@@ -84,7 +84,7 @@ final class GraphController
     public function storeSchemaItem(): void
     {
         $kind = (string) ($_POST['kind'] ?? '');
-        $name = $this->sanitizeIdentifier((string) ($_POST['name'] ?? ''));
+        $name = $this->normalizeSchemaName((string) ($_POST['name'] ?? ''));
 
         if (!$this->isValidSchemaKind($kind)) {
             $this->json(['ok' => false, 'message' => 'Tipo de item inválido.'], 422);
@@ -94,7 +94,7 @@ final class GraphController
         if ($name === '') {
             $this->json([
                 'ok' => false,
-                'message' => 'Use apenas letras, números e underscore, começando por letra ou underscore.',
+                'message' => 'Informe um nome válido, sem deixar o campo em branco.',
             ], 422);
             return;
         }
@@ -106,8 +106,8 @@ final class GraphController
     public function updateSchemaItem(): void
     {
         $kind = (string) ($_POST['kind'] ?? '');
-        $oldName = $this->sanitizeIdentifier((string) ($_POST['oldName'] ?? ''));
-        $newName = $this->sanitizeIdentifier((string) ($_POST['newName'] ?? ''));
+        $oldName = $this->normalizeSchemaName((string) ($_POST['oldName'] ?? ''));
+        $newName = $this->normalizeSchemaName((string) ($_POST['newName'] ?? ''));
 
         if (!$this->isValidSchemaKind($kind)) {
             $this->json(['ok' => false, 'message' => 'Tipo de item inválido.'], 422);
@@ -117,7 +117,7 @@ final class GraphController
         if ($oldName === '' || $newName === '') {
             $this->json([
                 'ok' => false,
-                'message' => 'Use apenas letras, números e underscore, começando por letra ou underscore.',
+                'message' => 'Informe um nome válido, sem deixar o campo em branco.',
             ], 422);
             return;
         }
@@ -129,7 +129,7 @@ final class GraphController
     public function deleteSchemaItem(): void
     {
         $kind = (string) ($_POST['kind'] ?? '');
-        $name = $this->sanitizeIdentifier((string) ($_POST['name'] ?? ''));
+        $name = $this->normalizeSchemaName((string) ($_POST['name'] ?? ''));
 
         if (!$this->isValidSchemaKind($kind)) {
             $this->json(['ok' => false, 'message' => 'Tipo de item inválido.'], 422);
@@ -139,7 +139,7 @@ final class GraphController
         if ($name === '') {
             $this->json([
                 'ok' => false,
-                'message' => 'Use apenas letras, números e underscore, começando por letra ou underscore.',
+                'message' => 'Informe um nome válido, sem deixar o campo em branco.',
             ], 422);
             return;
         }
@@ -153,15 +153,9 @@ final class GraphController
         return in_array($kind, ['node', 'relationship', 'property'], true);
     }
 
-    private function sanitizeIdentifier(string $value): string
+    private function normalizeSchemaName(string $value): string
     {
-        $identifier = preg_replace('/[^A-Za-z0-9_]/', '', trim($value)) ?? '';
-
-        if (!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $identifier)) {
-            return '';
-        }
-
-        return $identifier;
+        return trim(str_replace("\0", '', $value));
     }
 
     private function json(array $payload, int $status = 200): void

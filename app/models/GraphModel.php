@@ -27,24 +27,39 @@ final class GraphModel
 
     public function getRelationshipTypes(): array
     {
-        return $this->mergeSchemaCatalogItems(
-            'relationship',
-            $this->collectProcedureColumn(
-                'MATCH ()-[relationship]->() RETURN DISTINCT type(relationship) AS relationshipType ORDER BY relationshipType',
-                'relationshipType'
-            )
+        $relationshipTypes = $this->collectProcedureColumn(
+            'MATCH ()-[relationship]->() RETURN DISTINCT type(relationship) AS relationshipType ORDER BY relationshipType',
+            'relationshipType'
         );
+
+        if ($relationshipTypes === []) {
+            $relationshipTypes = $this->collectProcedureColumn(
+                'CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType ORDER BY relationshipType',
+                'relationshipType'
+            );
+        }
+
+        return $this->mergeSchemaCatalogItems('relationship', $relationshipTypes);
     }
 
     public function getNodeLabels(): array
     {
-        return $this->mergeSchemaCatalogItems(
-            'node',
-            $this->collectProcedureColumn(
-                'MATCH (node) WHERE NOT node:__BlowmindSchemaItem UNWIND labels(node) AS label RETURN DISTINCT label ORDER BY label',
-                'label'
-            )
+        $nodeLabels = $this->collectProcedureColumn(
+            'MATCH (node) WHERE NOT node:__BlowmindSchemaItem UNWIND labels(node) AS label RETURN DISTINCT label ORDER BY label',
+            'label'
         );
+
+        if ($nodeLabels === []) {
+            $nodeLabels = array_values(array_diff(
+                $this->collectProcedureColumn(
+                    'CALL db.labels() YIELD label RETURN label ORDER BY label',
+                    'label'
+                ),
+                ['__BlowmindSchemaItem']
+            ));
+        }
+
+        return $this->mergeSchemaCatalogItems('node', $nodeLabels);
     }
 
     public function getPropertyKeys(): array
@@ -58,7 +73,16 @@ final class GraphModel
             'propertyKey'
         );
 
-        return $this->mergeSchemaCatalogItems('property', array_merge($nodeProperties, $relationshipProperties));
+        $propertyKeys = array_merge($nodeProperties, $relationshipProperties);
+
+        if ($propertyKeys === []) {
+            $propertyKeys = $this->collectProcedureColumn(
+                'CALL db.propertyKeys() YIELD propertyKey RETURN propertyKey ORDER BY propertyKey',
+                'propertyKey'
+            );
+        }
+
+        return $this->mergeSchemaCatalogItems('property', $propertyKeys);
     }
 
     public function getSchemaItems(): array
@@ -159,7 +183,10 @@ final class GraphModel
     private function mergeSchemaCatalogItems(string $kind, array $databaseItems): array
     {
         $items = array_merge($databaseItems, $this->getSchemaCatalogItems($kind));
-        $items = array_values(array_unique(array_filter($items)));
+        $items = array_values(array_unique(array_filter(
+            $items,
+            static fn (string $item): bool => $item !== ''
+        )));
         sort($items, SORT_NATURAL | SORT_FLAG_CASE);
 
         return $items;
@@ -177,8 +204,13 @@ final class GraphModel
     private function renameSchemaCatalogItem(string $kind, string $oldName, string $newName): void
     {
         Database::client()->run(
-            'MATCH (item:__BlowmindSchemaItem {kind: $kind, name: $oldName})
-             SET item.name = $newName, item.updatedAt = datetime()',
+            'MERGE (renamed:__BlowmindSchemaItem {kind: $kind, name: $newName})
+             ON CREATE SET renamed.uuid = randomUUID(), renamed.createdAt = datetime()
+             SET renamed.updatedAt = datetime()
+             WITH renamed
+             MATCH (old:__BlowmindSchemaItem {kind: $kind, name: $oldName})
+             WHERE old <> renamed
+             DETACH DELETE old',
             ['kind' => $kind, 'oldName' => $oldName, 'newName' => $newName]
         );
     }
@@ -199,11 +231,25 @@ final class GraphModel
     private function collectProcedureColumn(string $query, string $column, array $parameters = []): array
     {
         $result = Database::client()->run($query, $parameters);
+        $values = [];
 
-        return array_values(array_filter(array_map(
-            static fn ($record): string => (string) $record->get($column),
-            iterator_to_array($result)
-        )));
+        foreach ($result as $record) {
+            $value = $record->get($column);
+
+            if ($value === null) {
+                continue;
+            }
+
+            $stringValue = is_scalar($value) || $value instanceof \Stringable
+                ? trim((string) $value)
+                : '';
+
+            if ($stringValue !== '') {
+                $values[] = $stringValue;
+            }
+        }
+
+        return array_values(array_unique($values));
     }
 
     private function quoteIdentifier(string $identifier): string
@@ -213,7 +259,7 @@ final class GraphModel
 
     public function createNode(string $label, array $properties): void
     {
-        $query = sprintf('CREATE (n:%s $props)', $label);
+        $query = sprintf('CREATE (n:%s $props)', $this->quoteIdentifier($label));
         Database::client()->run($query, ['props' => $properties]);
     }
 
@@ -228,7 +274,7 @@ final class GraphModel
              MERGE (b:Node {nome: $toName})
              ON CREATE SET b.uuid = randomUUID()
              MERGE (a)-[:%s]->(b)',
-            $relationshipType
+            $this->quoteIdentifier($relationshipType)
         );
 
         Database::client()->run($query, [
